@@ -1,0 +1,195 @@
+# Technical Indicator - MACD
+
+# Import Libs
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas_datareader as web
+import os
+from datetime import datetime, timedelta
+from shutil import copyfile
+import smtplib
+from socket import gaierror
+plt.style.use('fivethirtyeight')
+
+
+# Define Path, Input and Output
+InputPath = "J:/Projects/trading/"
+InputFile = "Watchlist.csv"
+OutputPath = "J:/Projects/trading/Strategies/system/Results/"
+
+#Get Stocks from watchlist
+#get_stocks = pd.read_csv(InputPath + InputFile, encoding = "ISO-8859-1")
+
+# Get Running Period
+# Always get a period for an entire year
+today = datetime.today()
+begdate = today.replace(year = int(today.year) -1)
+
+#period start
+if int(begdate.month) < 10:
+    if int(begdate.day) < 10:
+        periodstart = str(begdate.year) + '-0' + str(begdate.month) + '-0' + str(begdate.day)
+    else:
+        periodstart = str(begdate.year) + '-0' + str(begdate.month) + '-' + str(begdate.day)
+else:
+    if int(begdate.day) < 10:
+        periodstart = str(begdate.year) + '-' + str(begdate.month) + '-0' + str(begdate.day)
+    else:
+        periodstart = str(begdate.year) + '-' + str(begdate.month) + '-' + str(begdate.day)
+
+# Period End
+if int(today.month) < 10:
+    if int(today.day) < 10:
+        periodend = str(today.year) + '-0' + str(today.month) + '-0' + str(today.day)
+    else:
+        periodend = str(today.year) + '-0' + str(today.month) + '-' + str(today.day)
+else:
+    if int(today.day) < 10:
+        periodend = str(today.year) + '-' + str(today.month) + '-0' + str(today.day)
+    else:
+        periodend = str(today.year) + '-' + str(today.month) + '-' + str(today.day)
+
+
+
+'''
+# Create Daily Folder if not exist
+if os.path.isdir(OutputPath + str(today.year)) == True:
+    if os.path.isdir(OutputPath + str(today.year) + '/' + str(today.month)) == True:
+        if os.path.isdir(OutputPath + str(today.year) + '/' + str(today.month) + '/' + periodend) == False:
+            os.mkdir(OutputPath + str(today.year) + '/' + str(today.month) + '/' + periodend)
+    else:
+        os.mkdir(OutputPath + str(today.year) + '/' + str(today.month))
+        os.mkdir(OutputPath + str(today.year) + '/' + str(today.month) + '/' + periodend)
+else:
+    os.mkdir(OutputPath + str(today.year))
+    os.mkdir(OutputPath + str(today.year) + '/' + str(today.month))
+    os.mkdir(OutputPath + str(today.year) + '/' + str(today.month) + '/' + periodend)
+
+  
+# Define Function to append Buy and Sell Price
+def buy_sell(signal):
+    buy = []
+    sell = []
+    flag = -1
+
+    for i in range(0,len(signal)):
+      if signal['MACD'][i] > signal['Signal Line'][i]:
+        sell.append(np.nan)
+        if flag != 1:
+          buy.append(signal['Close'][i])
+          flag = 1
+        else:
+          buy.append(np.nan)
+      elif signal['MACD'][i] < signal['Signal Line'][i]:
+        buy.append(np.nan)
+        if flag != 0:
+          sell.append(signal['Close'][i])
+          flag = 0
+        else:
+          sell.append(np.nan)
+      else:
+        buy.append(np.nan)
+        sell.append(np.nan)
+
+    return(buy,sell)
+'''
+to_print = ''
+SP500 = web.DataReader('^GSPC', data_source='yahoo', start = periodstart, end = periodend)
+# MACD Indicator
+#for stock in get_stocks['Ticker']:
+for stock in ['NVDA']:
+    # Get data from yahoo finance
+    stock = web.DataReader(stock, data_source='yahoo', start = periodstart, end = periodend)
+    
+    # Get T, T-5, T-20
+    stockprice = stock[-1:]['Close'].sum()
+    stockprice2 = stock[-2:-1]['Close'].sum()
+    stockprice3 = stock[-6:-5]['Close'].sum()
+    stockprice4 = stock[-21:-20]['Close'].sum()
+    oneday = (stockprice - stockprice2) / stockprice2 * 100
+    fiveday = (stockprice - stockprice3) / stockprice3 * 100
+    twentyday = (stockprice - stockprice4) / stockprice4 * 100
+    
+    benchprice = SP500[-1:]['Close'].sum()
+    benchprice2 = SP500[-2:-1]['Close'].sum()
+    benchprice3 = SP500[-6:-5]['Close'].sum()
+    benchprice4 = SP500[-21:-20]['Close'].sum()
+    Boneday = (benchprice - benchprice2) / benchprice2 * 100
+    Bfiveday = (benchprice - benchprice3) / benchprice3 * 100
+    Btwentyday = (benchprice - benchprice4) / benchprice4 * 100
+    
+    onedayrefreturn = (oneday - Boneday) / Boneday * 100
+    fivedayrefreturn = (fiveday - Bfiveday) / Bfiveday * 100
+    twentydayrefreturn = (twentyday - Btwentyday) / Btwentyday * 100
+
+
+    # Calculate for MACD and signal
+    ShortEMA = stock.Close.ewm(span=20,adjust = True).mean()
+    MidEMA = stock.Close.ewm(span = 60,adjust = False).mean()
+    LongEMA = stock.Close.ewm(span = 120,adjust = False).mean()
+    
+    PDiv1 = stockprice - ShortEMA[-1:].sum()
+    PDiv2 = ShortEMA[-1:].sum() - MidEMA[-1:].sum()
+    PDiv3 = MidEMA[-1:].sum() - LongEMA[-1:].sum()
+    
+    print(onedayrefreturn)
+    print(fivedayrefreturn)
+    print(twentydayrefreturn)
+    print(PDiv1)
+    print(PDiv2)
+    print(PDiv3)
+    
+
+'''   
+    if np.isnan(df.iloc[-1]['buy_signal_price']) != True or  np.isnan(df.iloc[-1]['sell_signal_price'])!= True:
+        #Get Figure
+        plt.figure(figsize=(24,8))
+        plt.scatter(df.index,df['buy_signal_price'],color ='green', label='buy', marker = '^',alpha = 1)
+        plt.scatter(df.index,df['sell_signal_price'],color ='red', label='sell', marker = 'v',alpha = 1)
+        plt.plot(df['Close'],label='Close Price',alpha = 0.35)
+        plt.title('Close Price Buy & Sell Signals')
+        #plt.xticks(rotation = 45)
+        #plt.xlabel('Date')
+        plt.ylabel('Close Price  USD (&)')
+        plt.legend(loc = 'upper left')
+        
+        # Create Folder Based on Ticker
+        if os.path.isdir(OutputPath + str(today.year) + '/' + str(today.month) + '/' + periodend + '/' + stock) == False:
+            os.mkdir(OutputPath + str(today.year) + '/' + str(today.month) + '/' + periodend + '/' + stock)
+        
+        # Save figure to the folder
+        plt.savefig(OutputPath + str(today.year) + '/' + str(today.month) + '/' + periodend + '/' + stock + '/' + stock +'.png')
+        #print(df.iloc[-1]['buy_signal_price'])
+        #print(df.iloc[-1]['sell_signal_price'])
+        
+        if np.isnan(df.iloc[-1]['buy_signal_price']) != True:
+            to_print = to_print + stock + ' MACD indicator buy price ' + str(round(df.iloc[-1]['buy_signal_price'],2)) + '\n'
+            #print(df.iloc[-1]['buy_signal_price'])
+        else:
+            to_print = to_print + stock + ' MACD indicator sell price ' + str(round(df.iloc[-1]['sell_signal_price'],2)) + '\n'
+            #print(df.iloc[-1]['sell_signal_price'])
+
+
+# now you can play with your code. Let’s define the SMTP server separately here:
+port = 587 
+smtp_server = "smtp-mail.outlook.com"
+login = "wengleibin@hotmail.com" # paste your login generated by Mailtrap
+password = "Onlybean1024@" # paste your password generated by Mailtrap
+
+# specify the sender’s and receiver’s email addresses
+sender = "wengleibin@hotmail.com"
+receiver = "wengleibin@yahoo.com"
+
+
+server = smtplib.SMTP(smtp_server, port)
+server.connect(smtp_server, port)
+server.ehlo()
+server.starttls()
+server.ehlo()
+server.login(login, password)
+subject = periodend + ' MACD Indicator'
+message = 'Subject: {}\n\n{}'.format(subject, to_print)
+server.sendmail(sender, receiver, message)
+server.quit()
+'''
